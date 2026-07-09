@@ -1,0 +1,357 @@
+{
+  "name": "Podcast-to-Content Pipeline (POC)",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "audio-path",
+              "name": "audio_filename",
+              "value": "episode1.mp3",
+              "type": "string"
+            },
+            {
+              "id": "episode-title",
+              "name": "episode_title",
+              "value": "Vault English: Buying Groceries",
+              "type": "string"
+            },
+            {
+              "id": "episode-description",
+              "name": "episode_description",
+              "value": "Learn how to ask for help and pay at the supermarket with everyday English.",
+              "type": "string"
+            },
+            {
+              "id": "audio-duration",
+              "name": "audio_duration_minutes",
+              "value": "11",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "audio-input",
+      "name": "Audio Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/home/node/input/{{ $json.audio_filename }}"
+      },
+      "id": "read-audio-file",
+      "name": "Read Audio File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://asr.api.speechmatics.com/v2/jobs",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{DEEPGRAM_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "multipart-form-data",
+        "multipartFormData": [
+          {
+            "name": "config",
+            "value": "={\"type\":\"transcription\",\"transcription_config\":{\"language\":\"en\",\"diarization\":\"speaker\",\"operating_point\":\"enhanced\"}}",
+            "type": "text"
+          },
+          {
+            "name": "data_file",
+            "inputDataFieldName": "data",
+            "type": "file"
+          }
+        ],
+        "options": {}
+      },
+      "id": "speechmatics-submit",
+      "name": "Speechmatics: Submit Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait-30s",
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://asr.api.speechmatics.com/v2/jobs/{{ $json.id }}",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{DEEPGRAM_API_KEY}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "speechmatics-status",
+      "name": "Speechmatics: Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://asr.api.speechmatics.com/v2/jobs/{{ $('Speechmatics: Submit Job').item.json.id }}/transcript?format=txt",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{DEEPGRAM_API_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "speechmatics-transcript",
+      "name": "Speechmatics: Get Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://open_notebook:5055/api/sources",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{OPEN_NOTEBOOK_PASSWORD}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": \"text\",\n  \"title\": \"{{ $('Audio Input').item.json.episode_title }}\",\n  \"content\": \"{{ $json }}\"\n}",
+        "options": {}
+      },
+      "id": "open-notebook-source",
+      "name": "Open Notebook: Store Source",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.minimax.io/v1/text/chatcompletion_v2",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{MINIMAX_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"MiniMax-M3\",\n  \"max_tokens\": 8000,\n  \"temperature\": 0.7,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a professional podcast content writer. Given a podcast transcript with speaker labels (S1, S2, etc.), produce these content assets in clean markdown: 1) SHOW NOTES (bulleted list of main topics), 2) EPISODE SUMMARY (2-3 paragraph recap), 3) TWITTER/X POSTS (3 short tweets under 280 chars each), 4) LINKEDIN POST (professional 150-300 word post), 5) BLOG DRAFT (500-800 word article), 6) PULL QUOTES (5 memorable quotes with speaker labels).\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Episode: {{ $('Audio Input').item.json.episode_title }}\\nDescription: {{ $('Audio Input').item.json.episode_description }}\\n\\nTranscript:\\n{{ $json }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "minimax-generate",
+      "name": "MiniMax: Generate Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "{{TELEGRAM_CHAT_ID}}",
+        "text": "=\ud83c\udf99\ufe0f *{{ $('Audio Input').item.json.episode_title }}*\n\n---\n\n{{ $json.choices[0].message.content }}\n\n---\n\n_Pipeline: Local file \u2192 Speechmatics \u2192 Open Notebook \u2192 MiniMax \u2192 Telegram_\n_Duration: {{ $('Audio Input').item.json.audio_duration_minutes }} min | Job: {{ $('Speechmatics: Submit Job').item.json.id }}_",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-send",
+      "name": "Telegram: Send",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1800,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-creds",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Audio Input": {
+      "main": [
+        [
+          {
+            "node": "Read Audio File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Audio File": {
+      "main": [
+        [
+          {
+            "node": "Speechmatics: Submit Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speechmatics: Submit Job": {
+      "main": [
+        [
+          {
+            "node": "Wait 30s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30s": {
+      "main": [
+        [
+          {
+            "node": "Speechmatics: Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speechmatics: Check Status": {
+      "main": [
+        [
+          {
+            "node": "Speechmatics: Get Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speechmatics: Get Transcript": {
+      "main": [
+        [
+          {
+            "node": "Open Notebook: Store Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open Notebook: Store Source": {
+      "main": [
+        [
+          {
+            "node": "MiniMax: Generate Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MiniMax: Generate Content": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    "podcast",
+    "stt",
+    "llm",
+    "automation",
+    "poc"
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "versionId": "poc-v3",
+  "triggerCount": 0,
+  "active": false
+}

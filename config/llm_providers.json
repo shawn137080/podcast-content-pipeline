@@ -1,0 +1,159 @@
+{
+  "providers": {
+    "minimax": {
+      "name": "MiniMax",
+      "default": true,
+      "api_base": "https://api.minimax.io/v1",
+      "auth_type": "bearer",
+      "features": {
+        "function_calling": true,
+        "json_schema_output": true,
+        "streaming": true
+      },
+      "free_tier": {
+        "note": "User has token plan — specific limits per account"
+      },
+      "pricing": {
+        "input_per_1m_tokens": 0.05,
+        "output_per_1m_tokens": 0.05,
+        "currency": "USD",
+        "note": "Token Plan: sk-cp- key, 5h rolling quota window. Use api.minimax.io not api.minimax.chat"
+      },
+      "config_template": {
+        "model": "MiniMax-M3",
+        "max_tokens": 8192,
+        "temperature": 0.7
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.minimax.io/v1/text/chatcompletion_v2",
+      "n8n_headers": {
+        "Authorization": "Bearer {{LLM_API_KEY}}",
+        "Content-Type": "application/json"
+      },
+      "system_prompt": "You are a professional podcast content writer. Given a podcast transcript with speaker labels and timestamps, produce the following content assets: 1) Show Notes (structured bullet points covering main topics), 2) Episode Summary (2-3 paragraph recap), 3) Twitter/X Posts (3 short tweets), 4) LinkedIn Post (professional post), 5) Blog Draft (500-800 word article), 6) Pull Quotes (5 memorable quotes with speaker attributions and timestamps). Format all output as clean, publication-ready text."
+    },
+    "anthropic": {
+      "name": "Anthropic (Claude)",
+      "default": false,
+      "api_base": "https://api.anthropic.com/v1",
+      "auth_type": "api_key",
+      "features": {
+        "function_calling": true,
+        "json_schema_output": true,
+        "streaming": true
+      },
+      "free_tier": {
+        "note": "$5 free credits for new accounts"
+      },
+      "pricing": {
+        "input_per_1m_tokens": 3.0,
+        "output_per_1m_tokens": 15.0,
+        "currency": "USD"
+      },
+      "config_template": {
+        "model": "claude-sonnet-4-5",
+        "max_tokens": 8192,
+        "temperature": 0.7
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.anthropic.com/v1/messages",
+      "n8n_headers": {
+        "x-api-key": "{{LLM_API_KEY}}",
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json"
+      }
+    },
+    "openai": {
+      "name": "OpenAI (GPT-4o)",
+      "default": false,
+      "api_base": "https://api.openai.com/v1",
+      "auth_type": "bearer",
+      "features": {
+        "function_calling": true,
+        "json_schema_output": true,
+        "streaming": true
+      },
+      "free_tier": {
+        "note": "$5 free credits for new accounts"
+      },
+      "pricing": {
+        "input_per_1m_tokens": 2.5,
+        "output_per_1m_tokens": 15.0,
+        "currency": "USD"
+      },
+      "config_template": {
+        "model": "gpt-4o",
+        "max_tokens": 8192,
+        "temperature": 0.7
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.openai.com/v1/chat/completions",
+      "n8n_headers": {
+        "Authorization": "Bearer {{LLM_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    "groq": {
+      "name": "Groq",
+      "default": false,
+      "api_base": "https://api.groq.com/openai/v1",
+      "auth_type": "bearer",
+      "features": {
+        "function_calling": true,
+        "json_schema_output": true,
+        "streaming": true
+      },
+      "free_tier": {
+        "note": "Free tier with rate limits — good for dev/testing"
+      },
+      "pricing": {
+        "input_per_1m_tokens": 0,
+        "output_per_1m_tokens": 0,
+        "note": "Free tier (with rate limits). Paid: input $0.10-0.60/M tokens, output $0.10-2.40/M tokens depending on model."
+      },
+      "config_template": {
+        "model": "llama-3.1-70b-versatile",
+        "max_tokens": 8192,
+        "temperature": 0.7
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.groq.com/openai/v1/chat/completions",
+      "n8n_headers": {
+        "Authorization": "Bearer {{LLM_API_KEY}}",
+        "Content-Type": "application/json"
+      }
+    },
+    "ollama": {
+      "name": "Ollama (Local)",
+      "default": false,
+      "api_base": "http://localhost:11434/v1",
+      "auth_type": "none",
+      "features": {
+        "function_calling": false,
+        "json_schema_output": false,
+        "streaming": true
+      },
+      "free_tier": {
+        "unlimited": true,
+        "note": "Free but requires local GPU/CPU. No API cost."
+      },
+      "pricing": {
+        "per_minute": 0,
+        "currency": "USD"
+      },
+      "config_template": {
+        "model": "llama3.1:70b",
+        "max_tokens": 8192,
+        "temperature": 0.7
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "http://localhost:11434/v1/chat/completions",
+      "n8n_headers": {
+        "Content-Type": "application/json"
+      },
+      "note": "Run 'ollama serve' locally. Add 'ollama' service to docker-compose if running in Docker network."
+    }
+  },
+  "active_provider": "minimax",
+  "fallback_chain": ["minimax", "anthropic", "openai"]
+}

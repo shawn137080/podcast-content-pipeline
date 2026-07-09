@@ -1,0 +1,150 @@
+# Podcast-to-Content Pipeline — Docker Compose
+# POC: n8n + STT + Open Notebook + LLM + Telegram
+
+services:
+  # ── Core Infrastructure ─────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: podcast_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: podcast_pipeline
+      POSTGRES_USER: ${POSTGRES_USER:-podcast}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-podcast_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-podcast}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: podcast_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── n8n Orchestration ───────────────────────────────────────────────
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: podcast_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"   # Standard n8n port
+    environment:
+      # Database — using SQLite to preserve existing data from previous n8n instance
+      DB_TYPE: sqlite
+      DB_SQLITE_DATABASE: /home/node/.n8n/database.sqlite
+      # Queue mode (for scaling)
+      EXECUTIONS_MODE: ${EXECUTIONS_MODE:-regular}
+      # - Set to "queue" for production with multiple workers
+      # - Leave as "regular" for single-instance POC
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      # n8n home
+      N8N_USER_FOLDER: /home/node/.n8n
+      # Optional: increase timeout for large files
+      EXECUTIONS_TIMEOUT: 600
+      EXECUTIONS_TIMEOUT_MAX: 3600
+      # Webhook URL (update for your environment)
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678}
+      # Encryption key (change in production)
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-change-me-in-production}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./input:/home/node/input   # Local audio file input
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Open Notebook (NotebookLM Alternative) ─────────────────────────
+  # Full RAG system with SurrealDB embedded
+
+  surrealdb:
+    image: surrealdb/surrealdb:v2
+    container_name: podcast_surrealdb
+    restart: unless-stopped
+    command: start --log info --user root --pass root rocksdb:/mydata/mydatabase.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./surrealdb_data:/mydata
+    environment:
+      SURREAL_EXPERIMENTAL_GRAPHQL: "true"
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  open_notebook:
+    image: lfnovo/open_notebook:v1-latest
+    container_name: podcast_open_notebook
+    restart: unless-stopped
+    ports:
+      - "8502:8502"   # Web UI
+      - "5055:5055"   # REST API
+    environment:
+      # REQUIRED: Change this to a secure random string
+      OPEN_NOTEBOOK_ENCRYPTION_KEY: ${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
+      # Database
+      SURREAL_URL: ws://surrealdb:8000/rpc
+      SURREAL_USER: root
+      SURREAL_PASSWORD: root
+      SURREAL_NAMESPACE: open_notebook
+      SURREAL_DATABASE: open_notebook
+      # API listen host (bind to 0.0.0.0 for Docker networking)
+      API_HOST: "0.0.0.0"
+    volumes:
+      - ./open_notebook_data:/app/data
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl", "-sf", "http://localhost:5055/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── faster-whisper (Optional: Local STT without diarization) ──────
+  # Uncomment if you want a local-only STT option
+  # faster_whisper:
+  #   image: onerahmet/faster-whisper-server:latest
+  #   container_name: podcast_faster_whisper
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9000:9000"
+  #   environment:
+  #     MODEL_NAME: medium
+  #     LANGUAGE: en
+
+# ── Volumes ─────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+    external: true
+    name: n8n_data
+  surrealdb_data:
+  open_notebook_data:

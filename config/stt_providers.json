@@ -1,0 +1,173 @@
+{
+  "providers": {
+    "speechmatics": {
+      "name": "Speechmatics",
+      "default": true,
+      "api_base": "https://asr.api.speechmatics.com/v2",
+      "auth_type": "bearer",
+      "features": {
+        "diarization": true,
+        "timestamps": true,
+        "speaker_labels": true
+      },
+      "free_tier": {
+        "minutes_per_month": 3000,
+        "note": "Best for demos - 3000 min/month free"
+      },
+      "pricing": {
+        "per_minute": 0.00215,
+        "currency": "USD"
+      },
+      "config_template": {
+        "language": "en",
+        "diarization": "enable",
+        "timestamps": "segment",
+        "content_type": "audio/mp3"
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://asr.api.speechmatics.com/v2/jobs",
+      "n8n_headers": {
+        "Authorization": "Bearer {{STT_API_KEY}}",
+        "Content-Type": "application/json"
+      },
+      "n8n_body_template": {
+        "language": "en",
+        "diarization": "enable",
+        "timestamps": "segment",
+        "audio_file": "{{AUDIO_URL}}"
+      }
+    },
+    "deepgram": {
+      "name": "Deepgram",
+      "default": false,
+      "api_base": "https://api.deepgram.com/v1",
+      "auth_type": "api_key",
+      "features": {
+        "diarization": true,
+        "timestamps": true,
+        "speaker_labels": true
+      },
+      "free_tier": {
+        "minutes_per_month": 0,
+        "note": "No free tier for audio files, $0 credit on signup"
+      },
+      "pricing": {
+        "per_minute": 0.0066,
+        "diarization_per_minute": 0.0023,
+        "total_per_minute": 0.0089,
+        "currency": "USD"
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.deepgram.com/v1/listen",
+      "n8n_headers": {
+        "Authorization": "Token {{STT_API_KEY}}"
+      },
+      "n8n_query_params": {
+        "diarize": "true",
+        "timestamps": "true",
+        "punctuate": "true"
+      }
+    },
+    "assemblyai": {
+      "name": "AssemblyAI",
+      "default": false,
+      "api_base": "https://api.assemblyai.com/v2",
+      "auth_type": "api_key",
+      "features": {
+        "diarization": true,
+        "timestamps": true,
+        "speaker_labels": true
+      },
+      "free_tier": {
+        "minutes_per_month": 180,
+        "note": "3 hours/month free"
+      },
+      "pricing": {
+        "per_minute": 0.05,
+        "currency": "USD"
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.assemblyai.com/v2/transcript",
+      "n8n_headers": {
+        "Authorization": "{{STT_API_KEY}}"
+      }
+    },
+    "gladia": {
+      "name": "Gladia",
+      "default": false,
+      "api_base": "https://api.gladia.io/v2",
+      "auth_type": "api_key",
+      "features": {
+        "diarization": true,
+        "timestamps": true,
+        "speaker_labels": true
+      },
+      "free_tier": {
+        "minutes_per_month": 600,
+        "note": "10 hours/month free"
+      },
+      "pricing": {
+        "per_minute": 0.0102,
+        "currency": "USD"
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://api.gladia.io/v2/upload",
+      "n8n_headers": {
+        "Authorization": "Token {{STT_API_KEY}}"
+      }
+    },
+    "aws_transcribe": {
+      "name": "Amazon Transcribe",
+      "default": false,
+      "api_base": "https://transcribe.amazonaws.com",
+      "auth_type": "aws_sigv4",
+      "features": {
+        "diarization": true,
+        "timestamps": true,
+        "speaker_labels": true
+      },
+      "free_tier": {
+        "minutes_per_month": 60,
+        "note": "60 min/month free"
+      },
+      "pricing": {
+        "per_minute": 0.024,
+        "currency": "USD"
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "https://transcribe.amazonaws.com/2017-10-31/v1/start-call-analytics-stream-transcription",
+      "note": "AWS SigV4 auth required - use AWS credentials in n8n credential node"
+    },
+    "faster_whisper_local": {
+      "name": "faster-whisper (Local)",
+      "default": false,
+      "api_base": "http://localhost:9000",
+      "auth_type": "none",
+      "features": {
+        "diarization": false,
+        "timestamps": true,
+        "speaker_labels": false
+      },
+      "free_tier": {
+        "unlimited": true,
+        "note": "Free but no diarization - requires local GPU"
+      },
+      "pricing": {
+        "per_minute": 0,
+        "currency": "USD"
+      },
+      "n8n_http_method": "POST",
+      "n8n_endpoint": "http://localhost:9000/v1/transcriptions",
+      "n8n_headers": {
+        "Content-Type": "application/json"
+      },
+      "n8n_body_template": {
+        "model": "medium",
+        "language": "en"
+      },
+      "note": "Runs locally via faster-whisper server Docker container"
+    }
+  },
+  "active_provider": "speechmatics",
+  "fallback_chain": ["speechmatics", "deepgram", "assemblyai"]
+}
