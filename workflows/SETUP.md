@@ -28,7 +28,7 @@ The `Deepgram: Transcribe` node uses:
 ### 3. MiniMax API key
 
 The `Open Notebook` (Note: this is actually the Open Notebook: Store Source node) and downstream nodes use:
-- Header: `Authorization: Bearer <MINIMAX_API_KEY>`
+- Header: `Authorization: Bearer <MINIMAX_KEY>`
 
 Wait, that's actually the LLM API key, used for the Open Notebook credential. To configure:
 
